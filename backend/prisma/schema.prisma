@@ -1,0 +1,466 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  APPRENTICE
+  TEMPORARY
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_VACATION
+  SICK
+  INACTIVE
+}
+
+model Member {
+  id String @id @default(cuid())
+
+  name  String
+  email String
+  role  String @default("member")
+
+  phone          String?
+  privatphone    String?
+  jobTitle       String?
+  department     String?
+  employmentType EmploymentType @default(FULL_TIME)
+  weeklyHours    Float          @default(42)
+  hourlyRate     Float?
+  status         EmployeeStatus @default(ACTIVE)
+
+  vacationDaysTotal Int @default(25)
+  vacationDaysUsed  Int @default(0)
+
+  orderAssignments OrderAssignment[]
+
+  timeEntries         TimeEntry[] @relation("TimeEntriesReported")
+  approvedTimeEntries TimeEntry[] @relation("TimeEntriesApproved")
+
+  absencesRequested Absence[] @relation("AbsencesRequested")
+  absencesApproved  Absence[] @relation("AbsencesApproved")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt()
+
+  @@map("member")
+}
+
+enum CustomerType {
+  PRIVATE
+  BUSINESS
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum Country {
+  CH
+  DE
+  AT
+  LI
+}
+
+model Customer {
+  id String @id @default(cuid())
+
+  name        String
+  type        CustomerType @default(PRIVATE)
+  contactName String?
+  email       String?
+  phone       String?
+  mobile      String?
+
+  street     String?
+  postalCode String?
+  city       String?
+  country    Country @default(CH)
+
+  notes  String?
+  status CustomerStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders   Order[]
+  quotes   Quote[]
+  invoices Invoice[]
+
+  @@map("customers")
+}
+
+enum OrderStatus {
+  PLANNED
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Order {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  orderNumber String
+  title       String
+  description String?
+
+  status   OrderStatus @default(PLANNED)
+  priority Priority    @default(NORMAL)
+
+  street     String?
+  postalCode String?
+  city       String?
+
+  startDate DateTime?
+  endDate   DateTime?
+  deadline  DateTime?
+
+  estimatedHours Float?
+  estimatedCost  Float?
+  actualCost     Float?
+
+  internalNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments    OrderAssignment[]
+  documents      Document[]
+  timeEntries    TimeEntry[]
+  quotes         Quote[]
+  invoices       Invoice[]
+  calendarEvents CalendarEvent[]
+
+  @@index([customerId])
+  @@map("orders")
+}
+
+model OrderAssignment {
+  id       String @id @default(cuid())
+  orderId  String
+  order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id])
+
+  assignedAt DateTime  @default(now())
+  startDate  DateTime?
+  endDate    DateTime?
+  role       String?
+  notes      String?
+
+  @@unique([orderId, memberId])
+  @@map("order_assignments")
+}
+
+enum DocumentType {
+  PLAN
+  PHOTO
+  PDF
+  CONTRACT
+  OTHER
+}
+
+model Document {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  name        String
+  type        DocumentType
+  mimeType    String?
+  size        Int?
+  url         String
+  description String?
+
+  uploadedAt DateTime @default(now())
+  uploadedBy String? // member ID
+
+  @@index([orderId])
+  @@map("documents")
+}
+
+enum TimeEntryType {
+  WORK
+}
+
+enum TimeEntryStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model TimeEntry {
+  id String @id @default(cuid())
+
+  memberId String
+  member   Member @relation("TimeEntriesReported", fields: [memberId], references: [id])
+
+  orderId String?
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+  breakTime   Float?
+  description String?
+  type        TimeEntryType   @default(WORK)
+  status      TimeEntryStatus @default(PENDING)
+
+  approvedById String?
+  approvedBy   Member?   @relation("TimeEntriesApproved", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([memberId])
+  @@index([orderId])
+  @@index([date])
+  @@map("time_entries")
+}
+
+enum AbsenceType {
+  VACATION
+  SICK
+  UNPAID
+  SPECIAL
+  TRAINING
+  OTHER
+}
+
+enum AbsenceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model Absence {
+  id        String      @id @default(cuid())
+  memberId  String
+  member    Member      @relation("AbsencesRequested", fields: [memberId], references: [id])
+  type      AbsenceType
+  startDate DateTime
+  endDate   DateTime
+  halfDay   Boolean     @default(false)
+  reason    String?
+
+  status       AbsenceStatus @default(PENDING)
+  approvedById String?
+  approvedBy   Member?       @relation("AbsencesApproved", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([memberId])
+  @@index([startDate, endDate])
+  @@map("absences")
+}
+
+enum CalendarEventType {
+  ORDER
+  APPOINTMENT
+  MEETING
+  HOLIDAY
+  REMINDER
+  OTHER
+}
+
+model CalendarEvent {
+  id      String  @id @default(cuid())
+  orderId String?
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  title       String
+  description String?
+  type        CalendarEventType
+  startTime   DateTime
+  endTime     DateTime
+  allDay      Boolean           @default(false)
+  reminder    Int? // minutes before
+  location    String?
+  color       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([startTime, endTime])
+  @@map("calendar_events")
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model Quote {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  orderId    String?
+  order      Order?   @relation(fields: [orderId], references: [id])
+
+  quoteNumber String
+  title       String
+  description String?
+
+  status QuoteStatus @default(DRAFT)
+
+  issueDate  DateTime  @default(now())
+  validUntil DateTime?
+
+  subtotal  Float  @default(0)
+  taxRate   Float
+  taxAmount Float  @default(0)
+  discount  Float?
+  total     Float  @default(0)
+
+  terms String?
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items    QuoteItem[]
+  invoices Invoice[] // can be converted to invoices
+
+  @@index([customerId])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id      String @id @default(cuid())
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  position    Int
+  description String
+  unit        String? // e.g. "Stück", "Stunden", "m²"
+  quantity    Float
+  unitPrice   Float
+  total       Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([quoteId])
+  @@map("quote_items")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  PARTIAL
+  OVERDUE
+  CANCELLED
+}
+
+model Invoice {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  orderId    String?
+  order      Order?   @relation(fields: [orderId], references: [id])
+  quoteId    String?
+  quote      Quote?   @relation(fields: [quoteId], references: [id])
+
+  invoiceNumber String
+  title         String
+  description   String?
+
+  status InvoiceStatus @default(DRAFT)
+
+  issueDate DateTime  @default(now())
+  dueDate   DateTime?
+  paidDate  DateTime?
+
+  subtotal   Float  @default(0)
+  taxRate    Float
+  taxAmount  Float  @default(0)
+  discount   Float?
+  total      Float  @default(0)
+  paidAmount Float?
+
+  paymentMethod String?
+  paymentRef    String?
+
+  terms String?
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@index([customerId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  position    Int
+  description String
+  unit        String?
+  quantity    Float
+  unitPrice   Float
+  total       Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  amount    Float
+  date      DateTime
+  method    String? // e.g. "Überweisung", "Bar", "Karte"
+  reference String?
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@map("payments")
+}
