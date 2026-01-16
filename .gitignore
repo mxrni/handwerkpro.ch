@@ -1,0 +1,6 @@
+node_modules/
+.env
+locals3root
+dist/
+generated/
+/prisma/generated/prisma
