@@ -4,7 +4,7 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
 import { errorHandler } from "./middlewares/errorHandler";
-import { kundenRouter } from "./modules/kunden/kunden.routes";
+import { customersRouter } from "./modules/customers/customers.routes";
 import { env } from "./utils/env";
 
 const PORT = env.PORT || 3000;
@@ -26,7 +26,7 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-app.use("/example", kundenRouter);
+app.use("/customers", customersRouter);
 
 app.get("/", (req, res) => {
   res.send("HandwerkPro-API");
