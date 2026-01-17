@@ -13,7 +13,7 @@ export function handleRequest<
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       // merge body + params for validation
-      const mergedInput = { ...req.params, ...req.body };
+      const mergedInput = { ...req.params, ...req.body, ...req.query };
       const input = inputSchema.parse(mergedInput); // parse input
 
       const output = await handler(input);

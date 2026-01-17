@@ -41,7 +41,7 @@ export const UpdateCustomerInput = CreateCustomerInput.partial()
   });
 export type UpdateCustomerInput = z.infer<typeof UpdateCustomerInput>;
 
-export const DeleteCustomerInput = z.object({
+export const CustomerIDInput = z.object({
   id: z.string(),
 });
 
@@ -55,12 +55,13 @@ export const CustomerListItemOutput = CustomerSchema.extend({
 });
 
 export const ListCustomersInput = z.object({
-  page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(100).default(20),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
 
   search: z.string().nullable().optional(),
   type: z.enum(CustomerType).nullable().optional(),
 });
+export type ListCustomersInput = z.infer<typeof ListCustomersInput>;
 
 export const ListCustomersOutput = z.object({
   data: z.array(CustomerListItemOutput),

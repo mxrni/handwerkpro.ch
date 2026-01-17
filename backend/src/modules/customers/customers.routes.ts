@@ -2,7 +2,10 @@ import { Router } from "express";
 import { handleRequest } from "../../middlewares/handleRequest";
 import {
   CreateCustomerInput,
+  CustomerIDInput,
   CustomerOutput,
+  ListCustomersInput,
+  ListCustomersOutput,
   UpdateCustomerInput,
 } from "./customers.schema";
 import { CustomerService } from "./customers.service";
@@ -10,14 +13,38 @@ import { CustomerService } from "./customers.service";
 export const customersRouter = Router();
 const service = new CustomerService();
 
-customersRouter.get("/", async (req, res, next) => {
-  try {
-    const items = await service.getAll();
-    res.json(items);
-  } catch (err) {
-    next(err);
-  }
-});
+customersRouter.get(
+  "/",
+  handleRequest(ListCustomersInput, ListCustomersOutput, async (input) => {
+    const { page, pageSize, search, type } = input;
+
+    const { data, total } = await service.listAll({
+      page,
+      pageSize,
+      search,
+      type,
+    });
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: data,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+      },
+    };
+  }),
+);
+
+customersRouter.get(
+  "/:id",
+  handleRequest(CustomerIDInput, CustomerOutput, async (input) => {
+    return service.listOne(input.id);
+  }),
+);
 
 customersRouter.post(
   "/",
@@ -39,12 +66,10 @@ customersRouter.patch(
   }),
 );
 
-import { DeleteCustomerInput } from "./customers.schema";
-
 customersRouter.delete(
   "/:id",
   handleRequest(
-    DeleteCustomerInput,
+    CustomerIDInput,
     CustomerOutput,
     async (input) => {
       return service.delete(input.id);
