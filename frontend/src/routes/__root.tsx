@@ -1,19 +1,20 @@
-import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { AppSidebar } from "@/components/app-sidebar";
+import Provider from "@/components/provider";
+import { SiteHeader } from "@/components/site-header";
+import { SidebarInset } from "@/components/ui/sidebar";
+import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 const RootLayout = () => (
   <>
-    <div className="p-2 flex gap-2">
-      <Link to="/" className="[&.active]:font-bold">
-        Home
-      </Link>{" "}
-      <Link to="/about" className="[&.active]:font-bold">
-        About
-      </Link>
-    </div>
-    <hr />
-    <Outlet />
-    <TanStackRouterDevtools position="bottom-right" />
+    <Provider>
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <Outlet />
+        <TanStackRouterDevtools position="bottom-right" />
+      </SidebarInset>
+    </Provider>
   </>
 );
 
