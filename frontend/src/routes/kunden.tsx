@@ -8,17 +8,6 @@ export const Route = createFileRoute("/kunden")({
 });
 
 function RouteComponent() {
-  // await prefetchQuery(
-  //   orpc.customers.list.queryOptions({
-  //     input: {
-  //       page: loadedParams.page,
-  //       pageSize: loadedParams.pageSize,
-  //       search: loadedParams.search,
-  //       type: loadedParams.type ?? undefined,
-  //     },
-  //   }),
-  // );
-
   return (
     <MainContent
       title={"Kundenverwaltung"}

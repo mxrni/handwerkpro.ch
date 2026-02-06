@@ -1642,450 +1642,70 @@ const invoice = await prisma.$transaction(async (tx) => {
 
 ---
 
-## 🧪 Testing-Strategie
+## 🧪 Testing
 
-### Testing-Pyramide
+### Setup
 
+- **Test Runner:** Vitest 4.x in allen drei Packages
+- **Config:** `vitest.config.ts` je Package (Frontend mit `@` alias)
+- **Dateikonvention:** `*.spec.ts` (von tsconfig excluded)
+- **Ausführung:** `pnpm test` (einmalig) / `pnpm test:watch` (watch-mode)
+
+```bash
+# Alle Tests ausführen
+cd shared && pnpm test && cd ../backend && pnpm test && cd ../frontend && pnpm test
+
+# Einzelnes Package
+cd shared && pnpm test
+cd backend && pnpm test
+cd frontend && pnpm test
 ```
-         /\
-        /  \       E2E Tests (Playwright)
-       /____\      - Kritische User-Flows
-      /      \     - Smoke Tests
-     /        \    
-    /__________\   Integration Tests (Supertest + Test DB)
-   /            \  - API Endpoint Tests
-  /              \ - Service + DB Integration
- /________________\
-                   Unit Tests (Jest/Vitest)
-                   - Business Logic
-                   - Utility Functions
-                   - React Hooks (ohne UI)
-```
 
-### Backend Testing
+### Test-Übersicht
 
-#### Unit Tests (Service Layer)
+| Package | Datei | Tests | Was wird getestet |
+|---------|-------|-------|-------------------|
+| shared | `customers.spec.ts` | 22 | Zod-Schemas: Create/Update/List Validierung, Coercion, Refine |
+| backend | `customers.service.spec.ts` | 13 | Service-Logik: Filter, Pagination, Revenue-Aggregation, NotFoundError |
+| frontend | `zod-errors.spec.ts` | 18 | `translateZodError()`: Alle Branches (too_small, too_big, invalid_format, etc.) |
+
+### Philosophie
+
+Tests dort wo sie Bugs verhindern, nicht für Formalität:
+
+1. **Shared Schemas** — Sind der Vertrag zwischen FE und BE. Drift hier verursacht stille Bugs.
+2. **translateZodError** — Pure Function, viele Branches, User-facing German Strings.
+3. **CustomerService.listAll** — Komplexeste Backend-Methode: dynamische Filter, Pagination-Math, Revenue-Aggregation.
+4. **Service Error Handling** — NotFoundError-Mapping bei listOne/update/delete.
+
+### Backend: Prisma Mocking Pattern
 
 ```typescript
-// backend/src/modules/customers/__tests__/customers.service.test.ts
-import { CustomerService } from '../customers.service';
-import { prisma } from '../../../db/prisma';
-
-// Mock Prisma
-jest.mock('../../../db/prisma', () => ({
-  prisma: {
+// Prisma und env werden gemockt um DB/env-Abhängigkeit zu vermeiden
+vi.mock("../../db/prisma", () => ({
+  default: {
     customer: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
+      // ...
     },
   },
 }));
 
-describe('CustomerService', () => {
-  let service: CustomerService;
-
-  beforeEach(() => {
-    service = new CustomerService();
-    jest.clearAllMocks();
-  });
-
-  describe('listAll', () => {
-    it('should return paginated customers', async () => {
-      const mockCustomers = [
-        { id: '1', name: 'Test Customer', email: 'test@example.com' },
-      ];
-
-      (prisma.customer.findMany as jest.Mock).mockResolvedValue(mockCustomers);
-      (prisma.customer.count as jest.Mock).mockResolvedValue(1);
-
-      const result = await service.listAll({
-        page: 1,
-        pageSize: 20,
-        search: null,
-        type: null,
-      });
-
-      expect(result.data).toEqual(mockCustomers);
-      expect(result.meta.total).toBe(1);
-      expect(prisma.customer.findMany).toHaveBeenCalledWith({
-        where: {},
-        skip: 0,
-        take: 20,
-        orderBy: { createdAt: 'desc' },
-        include: expect.any(Object),
-      });
-    });
-
-    it('should filter by search term', async () => {
-      await service.listAll({
-        page: 1,
-        pageSize: 20,
-        search: 'test',
-        type: null,
-      });
-
-      expect(prisma.customer.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            OR: [
-              { name: { contains: 'test', mode: 'insensitive' } },
-              { email: { contains: 'test', mode: 'insensitive' } },
-            ],
-          },
-        })
-      );
-    });
-  });
-
-  describe('getById', () => {
-    it('should return customer when found', async () => {
-      const mockCustomer = { id: '1', name: 'Test' };
-      (prisma.customer.findUnique as jest.Mock).mockResolvedValue(mockCustomer);
-
-      const result = await service.getById('1');
-
-      expect(result).toEqual(mockCustomer);
-    });
-
-    it('should throw NotFoundError when customer not found', async () => {
-      (prisma.customer.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(service.getById('999')).rejects.toThrow('Customer with ID 999 not found');
-    });
-  });
-});
+vi.mock("../../utils/env", () => ({
+  env: { DATABASE_URL: "mock", NODE_ENV: "development" },
+}));
 ```
 
-#### Integration Tests (API Endpoints)
+### Backend: Testbarkeit
 
-```typescript
-// backend/src/modules/customers/__tests__/customers.routes.test.ts
-import request from 'supertest';
-import { app } from '../../../server';
-import { prisma } from '../../../db/prisma';
+`server.ts` exportiert `createApp()` Funktion (ohne `.listen()`), damit Tests den Express-App ohne Port-Binding erstellen können (z.B. für Supertest).
 
-describe('Customers API', () => {
-  beforeAll(async () => {
-    // Setup test database
-    await prisma.$executeRaw`TRUNCATE TABLE "Customer" CASCADE`;
-  });
+### Was bewusst NICHT getestet wird
 
-  afterAll(async () => {
-    await prisma.$disconnect();
-  });
-
-  describe('GET /api/customers', () => {
-    it('should return paginated customers', async () => {
-      // Seed data
-      await prisma.customer.create({
-        data: {
-          name: 'Test Customer',
-          email: 'test@example.com',
-          type: 'PRIVATE',
-          status: 'ACTIVE',
-        },
-      });
-
-      const response = await request(app)
-        .get('/api/customers')
-        .query({ page: 1, pageSize: 20 })
-        .expect(200);
-
-      expect(response.body).toHaveProperty('data');
-      expect(response.body).toHaveProperty('meta');
-      expect(response.body.data).toBeInstanceOf(Array);
-      expect(response.body.meta.page).toBe(1);
-    });
-
-    it('should filter by type', async () => {
-      const response = await request(app)
-        .get('/api/customers')
-        .query({ type: 'PRIVATE' })
-        .expect(200);
-
-      expect(response.body.data.every(c => c.type === 'PRIVATE')).toBe(true);
-    });
-
-    it('should return 400 for invalid query params', async () => {
-      const response = await request(app)
-        .get('/api/customers')
-        .query({ page: -1 })
-        .expect(400);
-
-      expect(response.body.type).toBe('validation');
-    });
-  });
-
-  describe('POST /api/customers', () => {
-    it('should create new customer', async () => {
-      const customerData = {
-        name: 'New Customer',
-        email: 'new@example.com',
-        type: 'BUSINESS',
-        status: 'ACTIVE',
-      };
-
-      const response = await request(app)
-        .post('/api/customers')
-        .send(customerData)
-        .expect(201);
-
-      expect(response.body).toMatchObject(customerData);
-      expect(response.body).toHaveProperty('id');
-    });
-
-    it('should return 400 for invalid data', async () => {
-      const response = await request(app)
-        .post('/api/customers')
-        .send({ name: '' }) // Missing required fields
-        .expect(400);
-
-      expect(response.body.type).toBe('validation');
-    });
-  });
-
-  describe('DELETE /api/customers/:id', () => {
-    it('should delete customer', async () => {
-      const customer = await prisma.customer.create({
-        data: {
-          name: 'To Delete',
-          email: 'delete@example.com',
-          type: 'PRIVATE',
-          status: 'ACTIVE',
-        },
-      });
-
-      await request(app)
-        .delete(`/api/customers/${customer.id}`)
-        .expect(204);
-
-      const deleted = await prisma.customer.findUnique({
-        where: { id: customer.id },
-      });
-      expect(deleted).toBeNull();
-    });
-
-    it('should return 404 for non-existent customer', async () => {
-      await request(app)
-        .delete('/api/customers/non-existent-id')
-        .expect(404);
-    });
-  });
-});
-```
-
-### Frontend Testing
-
-#### Unit Tests (Hooks)
-
-```typescript
-// frontend/src/hooks/__tests__/use-customers.test.ts
-import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useCustomers } from '../use-customers';
-import { customersApi } from '@/api/customers';
-
-jest.mock('@/api/customers');
-
-const createWrapper = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return ({ children }) => (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
-  );
-};
-
-describe('useCustomers', () => {
-  it('should fetch customers successfully', async () => {
-    const mockData = {
-      data: [{ id: '1', name: 'Test Customer' }],
-      meta: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
-    };
-
-    (customersApi.list as jest.Mock).mockResolvedValue(mockData);
-
-    const { result } = renderHook(
-      () => useCustomers({ page: 1, pageSize: 20, search: null, type: null }),
-      { wrapper: createWrapper() }
-    );
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-    expect(result.current.data).toEqual(mockData);
-  });
-
-  it('should handle errors', async () => {
-    (customersApi.list as jest.Mock).mockRejectedValue(new Error('API Error'));
-
-    const { result } = renderHook(
-      () => useCustomers({ page: 1, pageSize: 20, search: null, type: null }),
-      { wrapper: createWrapper() }
-    );
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.error).toBeInstanceOf(Error);
-  });
-});
-```
-
-#### Component Tests
-
-```typescript
-// frontend/src/components/customers/__tests__/customer-card.test.tsx
-import { render, screen, fireEvent } from '@testing-library/react';
-import { CustomerCard } from '../customer-card';
-
-const mockCustomer = {
-  id: '1',
-  name: 'Test Customer',
-  email: 'test@example.com',
-  phone: '+41 44 123 45 67',
-  type: 'PRIVATE',
-  status: 'ACTIVE',
-  street: 'Teststrasse 1',
-  postalCode: '8000',
-  city: 'Zürich',
-  stats: {
-    orderCount: 5,
-    revenue: 15000,
-  },
-};
-
-describe('CustomerCard', () => {
-  it('should render customer information', () => {
-    render(<CustomerCard customer={mockCustomer} />);
-
-    expect(screen.getByText('Test Customer')).toBeInTheDocument();
-    expect(screen.getByText('test@example.com')).toBeInTheDocument();
-    expect(screen.getByText('5')).toBeInTheDocument(); // Order count
-    expect(screen.getByText(/CHF 15'000.00/)).toBeInTheDocument();
-  });
-
-  it('should show business icon for business customers', () => {
-    const businessCustomer = { ...mockCustomer, type: 'BUSINESS' };
-    render(<CustomerCard customer={businessCustomer} />);
-
-    // Check for Building2 icon (by class or test-id)
-    expect(screen.getByTestId('building-icon')).toBeInTheDocument();
-  });
-
-  it('should call onSelect when card is clicked', () => {
-    const onSelect = jest.fn();
-    render(<CustomerCard customer={mockCustomer} onSelect={onSelect} />);
-
-    fireEvent.click(screen.getByText('Test Customer'));
-
-    expect(onSelect).toHaveBeenCalledWith(mockCustomer.id);
-  });
-
-  it('should open dropdown menu', () => {
-    render(<CustomerCard customer={mockCustomer} />);
-
-    const menuButton = screen.getByRole('button', { name: /more/i });
-    fireEvent.click(menuButton);
-
-    expect(screen.getByText('Bearbeiten')).toBeInTheDocument();
-    expect(screen.getByText('Löschen')).toBeInTheDocument();
-  });
-});
-```
-
-### E2E Tests (Playwright)
-
-```typescript
-// e2e/customers.spec.ts
-import { test, expect } from '@playwright/test';
-
-test.describe('Customers Management', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:5173/kunden');
-  });
-
-  test('should display customer list', async ({ page }) => {
-    await expect(page.locator('h1')).toContainText('Kundenverwaltung');
-    await expect(page.locator('[data-testid="customer-card"]')).toHaveCount(20);
-  });
-
-  test('should create new customer', async ({ page }) => {
-    // Click "Neuer Kunde" button
-    await page.click('text=Neuer Kunde');
-
-    // Fill form
-    await page.fill('input[name="name"]', 'E2E Test Customer');
-    await page.fill('input[name="email"]', 'e2e@test.com');
-    await page.fill('input[name="phone"]', '+41 44 123 45 67');
-    await page.selectOption('select[name="type"]', 'PRIVATE');
-
-    // Submit
-    await page.click('button[type="submit"]');
-
-    // Verify toast notification
-    await expect(page.locator('.sonner-toast')).toContainText('erfolgreich erstellt');
-
-    // Verify new customer appears in list
-    await expect(page.locator('text=E2E Test Customer')).toBeVisible();
-  });
-
-  test('should filter customers by search', async ({ page }) => {
-    await page.fill('input[placeholder="Suchen"]', 'Test');
-
-    // Wait for results
-    await page.waitForTimeout(500);
-
-    // All visible customers should match search
-    const customerNames = await page.locator('[data-testid="customer-name"]').allTextContents();
-    expect(customerNames.every(name => name.toLowerCase().includes('test'))).toBe(true);
-  });
-
-  test('should navigate to customer detail', async ({ page }) => {
-    await page.click('[data-testid="customer-card"]').first();
-
-    // Verify URL changed
-    await expect(page).toHaveURL(/\/kunden\/[a-z0-9]+/);
-
-    // Verify detail page loaded
-    await expect(page.locator('h1')).toBeVisible();
-  });
-
-  test('should delete customer', async ({ page }) => {
-    // Open dropdown menu
-    await page.click('[data-testid="customer-menu-button"]').first();
-
-    // Click delete
-    await page.click('text=Löschen');
-
-    // Confirm deletion
-    await page.click('text=Bestätigen');
-
-    // Verify toast
-    await expect(page.locator('.sonner-toast')).toContainText('gelöscht');
-  });
-});
-```
-
-### Coverage-Ziel
-
-**Minimum: 80% Coverage für alle Packages**
-
-```bash
-# Backend
-cd backend
-pnpm test:coverage
-
-# Frontend
-cd frontend
-pnpm test:coverage
-
-# Check coverage report
-open coverage/lcov-report/index.html
-```
+- **Thin CRUD-Passthroughs** (create/update sind 1:1 Prisma-Calls)
+- **React Query Hooks** (Wrapper um fetch, kein eigener Logic)
+- **UI-Komponenten** (Setup-Overhead mit QueryClient/Suspense überwiegt Nutzen — erst bei mehr Komplexität oder weiteren Bugs)
 
 ---
 

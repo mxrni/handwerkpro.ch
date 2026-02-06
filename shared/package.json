@@ -13,7 +13,9 @@
   },
   "scripts": {
     "dev": "tsc --watch",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@tsconfig/node22": "^22.0.5",
     "typescript": "~5.9.3",
+    "vitest": "^4.0.18",
     "zod": "^4.3.6"
   }
 }
