@@ -1,11 +1,29 @@
 import { NextFunction, Request, Response } from "express";
 import { flattenError, ZodError } from "zod";
 
+interface HttpError {
+  status: number;
+  message: string;
+  type?: string;
+  details?: unknown;
+}
+
+function isHttpError(err: unknown): err is HttpError {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "status" in err &&
+    "message" in err &&
+    typeof (err as HttpError).status === "number" &&
+    typeof (err as HttpError).message === "string"
+  );
+}
+
 export function errorHandler(
-  err: any,
-  req: Request,
+  err: unknown,
+  _req: Request,
   res: Response,
-  next: NextFunction,
+  _next: NextFunction,
 ) {
   console.error(err);
 
@@ -17,7 +35,7 @@ export function errorHandler(
     });
   }
 
-  if (err?.status && err?.message) {
+  if (isHttpError(err)) {
     return res.status(err.status).json({
       type: err.type || "error",
       message: err.message,

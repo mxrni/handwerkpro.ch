@@ -1,7 +1,3 @@
-"use client";
-
-import * as React from "react";
-
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -9,19 +5,18 @@ import {
 } from "@/components/ui/sidebar";
 import NavLink from "./nav-link";
 
-export function NavSecondary({
+export function NavMain({
   items,
-  ...props
 }: {
   items: {
     title: string;
     url: string;
-    icon: React.ComponentType<{ className?: string }>;
+    icon?: React.ComponentType<{ className?: string }>;
   }[];
-} & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
+}) {
   return (
-    <SidebarGroup {...props}>
-      <SidebarGroupContent>
+    <SidebarGroup>
+      <SidebarGroupContent className="flex flex-col gap-2">
         <SidebarMenu>
           {items.map((item) => (
             <NavLink item={item} />

@@ -1,11 +1,11 @@
-import prisma from "../../db/prisma";
-import { CustomerWhereInput } from "../../generated/prisma/models";
-import { isPrismaNotFoundError, NotFoundError } from "../../utils/errors";
 import {
   CreateCustomerInput,
   ListCustomersInput,
   UpdateCustomerInput,
-} from "./customers.schema";
+} from "@app/shared/src/index";
+import prisma from "../../db/prisma";
+import { CustomerWhereInput } from "../../generated/prisma/models";
+import { isPrismaNotFoundError, NotFoundError } from "../../utils/errors";
 
 export class CustomerService {
   async listAll(data: ListCustomersInput) {
@@ -119,5 +119,21 @@ export class CustomerService {
       }
       throw error;
     }
+  }
+
+  async getStats() {
+    const [active, inactive, archived, total] = await Promise.all([
+      prisma.customer.count({ where: { status: "ACTIVE" } }),
+      prisma.customer.count({ where: { status: "INACTIVE" } }),
+      prisma.customer.count({ where: { status: "ARCHIVED" } }),
+      prisma.customer.count(),
+    ]);
+
+    return {
+      active,
+      inactive,
+      archived,
+      total,
+    };
   }
 }

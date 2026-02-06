@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
+import { SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
 import type { NavItem } from "./app-sidebar";
-import { SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
 
 export default function NavLink({ item }: { item: NavItem }) {
   const pathname = useLocation().pathname;

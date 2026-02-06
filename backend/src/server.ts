@@ -1,5 +1,5 @@
 import cors from "cors";
-import express from "express";
+import express, { type Express } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -9,7 +9,7 @@ import { env } from "./utils/env";
 
 const PORT = env.PORT || 3000;
 
-export const app = express();
+export const app: Express = express();
 
 app.use(express.json());
 app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev")); // request logging
@@ -26,7 +26,7 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-app.use("/customers", customersRouter);
+app.use("/api/customers", customersRouter);
 
 app.get("/", (req, res) => {
   res.send("HandwerkPro-API");

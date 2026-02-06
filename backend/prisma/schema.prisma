@@ -124,7 +124,7 @@ enum Priority {
 model Order {
   id         String   @id @default(cuid())
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   orderNumber String
   title       String
@@ -222,7 +222,7 @@ model TimeEntry {
   member   Member @relation("TimeEntriesReported", fields: [memberId], references: [id])
 
   orderId String?
-  order   Order?  @relation(fields: [orderId], references: [id])
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   date        DateTime
   startTime   DateTime
@@ -296,7 +296,7 @@ enum CalendarEventType {
 model CalendarEvent {
   id      String  @id @default(cuid())
   orderId String?
-  order   Order?  @relation(fields: [orderId], references: [id])
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   title       String
   description String?
@@ -326,9 +326,9 @@ enum QuoteStatus {
 model Quote {
   id         String   @id @default(cuid())
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   orderId    String?
-  order      Order?   @relation(fields: [orderId], references: [id])
+  order      Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   quoteNumber String
   title       String
@@ -389,11 +389,11 @@ enum InvoiceStatus {
 model Invoice {
   id         String   @id @default(cuid())
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   orderId    String?
-  order      Order?   @relation(fields: [orderId], references: [id])
+  order      Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   quoteId    String?
-  quote      Quote?   @relation(fields: [quoteId], references: [id])
+  quote      Quote?   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   invoiceNumber String
   title         String

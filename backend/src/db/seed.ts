@@ -45,7 +45,7 @@ async function main() {
   await prisma.calendarEvent.deleteMany();
 
   /* --------------------------- members ------------------------------- */
-  const members = await prisma.member.createMany({
+  const _members = await prisma.member.createMany({
     data: Array.from({ length: 8 }).map((_, i) => ({
       name: faker.person.fullName(),
       email: faker.internet.email(),
@@ -65,7 +65,7 @@ async function main() {
   const allMembers = await prisma.member.findMany();
 
   /* -------------------------------- customers ------------------------------ */
-  const customers = await prisma.customer.createMany({
+  const _customers = await prisma.customer.createMany({
     data: Array.from({ length: 60 }).map(() => {
       const isBusiness = chance(0.6);
       return {
@@ -88,7 +88,7 @@ async function main() {
 
   /* ---------------------------- orders & invoices ------------------------- */
   for (const customer of allCustomers) {
-    const orders = await prisma.order.createMany({
+    const _orders = await prisma.order.createMany({
       data: Array.from({
         length: faker.number.int({ min: 1, max: 3 }),
       }).map(() => ({

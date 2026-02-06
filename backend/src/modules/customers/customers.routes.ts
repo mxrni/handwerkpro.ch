@@ -1,17 +1,26 @@
-import { Router } from "express";
-import { handleRequest } from "../../middlewares/handleRequest";
 import {
   CreateCustomerInput,
   CustomerIDInput,
   CustomerOutput,
+  CustomerStatsOutput,
   ListCustomersInput,
   ListCustomersOutput,
   UpdateCustomerInput,
-} from "./customers.schema";
+} from "@app/shared";
+import { Router } from "express";
+import z from "zod";
+import { handleRequest } from "../../middlewares/handleRequest";
 import { CustomerService } from "./customers.service";
 
-export const customersRouter = Router();
+export const customersRouter: Router = Router();
 const service = new CustomerService();
+
+customersRouter.get(
+  "/stats",
+  handleRequest(z.object({}), CustomerStatsOutput, async () => {
+    return service.getStats();
+  }),
+);
 
 customersRouter.get(
   "/",

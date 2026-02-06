@@ -1,9 +1,5 @@
 import z from "zod";
-import {
-  Country,
-  CustomerStatus,
-  CustomerType,
-} from "../../generated/prisma/enums";
+import { Country, CustomerStatus, CustomerType } from "./enums";
 
 export const CustomerSchema = z.object({
   id: z.string(),
@@ -53,6 +49,7 @@ export const CustomerListItemOutput = CustomerSchema.extend({
     revenue: z.number(),
   }),
 });
+export type CustomerListItemOutput = z.infer<typeof CustomerListItemOutput>;
 
 export const ListCustomersInput = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -72,3 +69,12 @@ export const ListCustomersOutput = z.object({
     totalPages: z.number(),
   }),
 });
+export type ListCustomersOutput = z.infer<typeof ListCustomersOutput>;
+
+export const CustomerStatsOutput = z.object({
+  active: z.number(),
+  inactive: z.number(),
+  archived: z.number(),
+  total: z.number(),
+});
+export type CustomerStatsOutput = z.infer<typeof CustomerStatsOutput>;

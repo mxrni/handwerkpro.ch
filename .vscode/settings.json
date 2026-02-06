@@ -7,5 +7,9 @@
   },
   "search.exclude": {
     "**/routeTree.gen.ts": true
+  },
+  "chat.tools.terminal.autoApprove": {
+    "pnpm": true,
+    "npx prisma": true
   }
 }
