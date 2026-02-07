@@ -17,7 +17,6 @@ import { useCustomerSearchParams } from "./use-customer-search-params";
 export function useCustomers() {
   const [params] = useCustomerSearchParams();
 
-  console.log(params.pageSize);
   const queryParams: ListCustomersInput = {
     page: params.page,
     pageSize: params.pageSize,

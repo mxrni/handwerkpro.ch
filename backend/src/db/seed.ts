@@ -90,7 +90,7 @@ async function main() {
   for (const customer of allCustomers) {
     const _orders = await prisma.order.createMany({
       data: Array.from({
-        length: faker.number.int({ min: 1, max: 3 }),
+        length: faker.number.int({ min: 5, max: 15 }),
       }).map(() => ({
         customerId: customer.id,
         orderNumber: faker.string.alphanumeric(8).toUpperCase(),
@@ -195,35 +195,38 @@ async function main() {
   }
 
   /* -------------------------------- quotes --------------------------------- */
-  for (const customer of allCustomers.slice(0, 25)) {
-    const quote = await prisma.quote.create({
-      data: {
-        customerId: customer.id,
-        quoteNumber: faker.string.alphanumeric(7).toUpperCase(),
-        title: "Offerte",
-        description: faker.lorem.sentence(),
-        status: pick(Object.values(QuoteStatus)),
-        taxRate: 8.1,
-      },
-    });
+  for (const customer of allCustomers) {
+    // Create 2-5 quotes per customer
+    for (let i = 0; i < faker.number.int({ min: 2, max: 5 }); i++) {
+      const quote = await prisma.quote.create({
+        data: {
+          customerId: customer.id,
+          quoteNumber: faker.string.alphanumeric(7).toUpperCase(),
+          title: "Offerte",
+          description: faker.lorem.sentence(),
+          status: pick(Object.values(QuoteStatus)),
+          taxRate: 8.1,
+        },
+      });
 
-    const items = Array.from({
-      length: faker.number.int({ min: 2, max: 6 }),
-    }).map((_, i) => {
-      const qty = faker.number.int({ min: 1, max: 10 });
-      const price = money(80, 400);
-      return {
-        quoteId: quote.id,
-        position: i + 1,
-        description: faker.commerce.productName(),
-        unit: pick(["h", "Stk", "m²"]),
-        quantity: qty,
-        unitPrice: price,
-        total: qty * price,
-      };
-    });
+      const items = Array.from({
+        length: faker.number.int({ min: 2, max: 6 }),
+      }).map((_, i) => {
+        const qty = faker.number.int({ min: 1, max: 10 });
+        const price = money(80, 400);
+        return {
+          quoteId: quote.id,
+          position: i + 1,
+          description: faker.commerce.productName(),
+          unit: pick(["h", "Stk", "m²"]),
+          quantity: qty,
+          unitPrice: price,
+          total: qty * price,
+        };
+      });
 
-    await prisma.quoteItem.createMany({ data: items });
+      await prisma.quoteItem.createMany({ data: items });
+    }
   }
 
   /* ------------------------------ time entries ------------------------------ */

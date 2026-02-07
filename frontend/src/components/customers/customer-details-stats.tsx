@@ -1,21 +1,18 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCustomer } from "@/hooks/use-customers";
 import { formatCurrency } from "@/lib/utils";
-import { Briefcase, Clock, Receipt, TrendingUp } from "lucide-react";
+import { Briefcase, FileText, Hammer, TrendingUp } from "lucide-react";
 import { Suspense } from "react";
 
-export function CustomerDetailsStatsContent({ id: _id }: { id: string }) {
-  const revenue = 12345.67;
-  const ordersTotal = 12;
-
-  const openInvoices = 3;
-  const activeOrders = 2;
+function CustomerDetailsStatsContent({ id }: { id: string }) {
+  const { data: customer } = useCustomer(id);
 
   const stats = [
     {
       key: "revenue",
       label: "Gesamtumsatz",
-      value: formatCurrency(revenue),
+      value: formatCurrency(customer.stats.revenue),
       icon: TrendingUp,
       iconClass: "text-primary",
       bgClass: "bg-primary/10",
@@ -23,15 +20,15 @@ export function CustomerDetailsStatsContent({ id: _id }: { id: string }) {
     {
       key: "openInvoices",
       label: "Offene Rechnungen",
-      value: openInvoices,
-      icon: Receipt,
-      iconClass: "text-chart-1",
-      bgClass: "bg-chart-1/10",
+      value: formatCurrency(customer.stats.openInvoices),
+      icon: FileText,
+      iconClass: "text-chart-4",
+      bgClass: "bg-chart-4/10",
     },
     {
       key: "ordersTotal",
       label: "Aufträge gesamt",
-      value: ordersTotal,
+      value: customer.stats.orderCount,
       icon: Briefcase,
       iconClass: "text-chart-2",
       bgClass: "bg-chart-2/10",
@@ -39,15 +36,15 @@ export function CustomerDetailsStatsContent({ id: _id }: { id: string }) {
     {
       key: "activeOrders",
       label: "Aktive Aufträge",
-      value: activeOrders,
-      icon: Clock,
+      value: customer.stats.activeOrders,
+      icon: Hammer,
       iconClass: "text-chart-3",
       bgClass: "bg-chart-3/10",
     },
   ] as const;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat) => {
         const Icon = stat.icon;
 
@@ -60,7 +57,7 @@ export function CustomerDetailsStatsContent({ id: _id }: { id: string }) {
 
               <div>
                 <p className="text-2xl font-bold text-card-foreground">
-                  {stat.value} (tbd)
+                  {stat.value}
                 </p>
                 <p className="text-sm text-muted-foreground">{stat.label}</p>
               </div>
@@ -74,7 +71,7 @@ export function CustomerDetailsStatsContent({ id: _id }: { id: string }) {
 
 function CustomerDetailsStatsFallback() {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {[...Array(4)].map((_, idx) => (
         <Skeleton key={idx} className="h-20 w-full rounded-md" />
       ))}

@@ -1,5 +1,8 @@
 import z from "zod";
 import { Country, CustomerStatus, CustomerType } from "./enums";
+import { CustomerInvoiceOutput } from "./invoices";
+import { CustomerOrderOutput } from "./orders";
+import { CustomerQuoteOutput } from "./quotes";
 
 export const CustomerSchema = z.object({
   id: z.string(),
@@ -47,6 +50,8 @@ export const CustomerListItemOutput = CustomerSchema.extend({
   stats: z.object({
     orderCount: z.number(),
     revenue: z.number(),
+    openInvoices: z.number(),
+    activeOrders: z.number(),
   }),
 });
 export type CustomerListItemOutput = z.infer<typeof CustomerListItemOutput>;
@@ -78,3 +83,10 @@ export const CustomerStatsOutput = z.object({
   total: z.number(),
 });
 export type CustomerStatsOutput = z.infer<typeof CustomerStatsOutput>;
+
+export const CustomerDetailOutput = CustomerListItemOutput.extend({
+  orders: z.array(CustomerOrderOutput),
+  quotes: z.array(CustomerQuoteOutput),
+  invoices: z.array(CustomerInvoiceOutput),
+});
+export type CustomerDetailOutput = z.infer<typeof CustomerDetailOutput>;

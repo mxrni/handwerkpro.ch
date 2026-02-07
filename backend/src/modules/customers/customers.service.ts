@@ -34,12 +34,16 @@ export class CustomerService {
             },
           },
           invoices: {
-            where: {
-              status: "PAID",
-            },
             select: {
+              status: true,
               total: true,
             },
+          },
+          orders: {
+            where: {
+              status: { in: ["PLANNED", "IN_PROGRESS"] },
+            },
+            select: { id: true },
           },
         },
       }),
@@ -47,16 +51,21 @@ export class CustomerService {
     ]);
 
     const customersData = customers.map((customer) => {
-      const revenue = customer.invoices.reduce(
-        (sum, invoice) => sum + invoice.total,
-        0,
-      );
+      const revenue = customer.invoices
+        .filter((inv) => inv.status === "PAID")
+        .reduce((sum, inv) => sum + inv.total, 0);
+
+      const openInvoices = customer.invoices
+        .filter((inv) => inv.status !== "PAID" && inv.status !== "CANCELLED")
+        .reduce((sum, inv) => sum + inv.total, 0);
 
       return {
         ...customer,
         stats: {
           orderCount: customer._count.orders,
           revenue,
+          openInvoices,
+          activeOrders: customer.orders.length,
         },
       };
     });
@@ -71,8 +80,80 @@ export class CustomerService {
     try {
       const customer = await prisma.customer.findUniqueOrThrow({
         where: { id },
+        include: {
+          _count: {
+            select: {
+              orders: true,
+            },
+          },
+          invoices: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              title: true,
+              status: true,
+              issueDate: true,
+              dueDate: true,
+              paidDate: true,
+              total: true,
+              paidAmount: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+          },
+          orders: {
+            select: {
+              id: true,
+              orderNumber: true,
+              title: true,
+              status: true,
+              priority: true,
+              startDate: true,
+              endDate: true,
+              deadline: true,
+              estimatedCost: true,
+              actualCost: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+          },
+          quotes: {
+            select: {
+              id: true,
+              quoteNumber: true,
+              title: true,
+              status: true,
+              issueDate: true,
+              validUntil: true,
+              total: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+          },
+        },
       });
-      return customer;
+
+      const revenue = customer.invoices
+        .filter((inv) => inv.status === "PAID")
+        .reduce((sum, inv) => sum + inv.total, 0);
+
+      const openInvoices = customer.invoices
+        .filter((inv) => inv.status !== "PAID" && inv.status !== "CANCELLED")
+        .reduce((sum, inv) => sum + inv.total, 0);
+
+      const activeOrders = customer.orders.filter(
+        (o) => o.status === "PLANNED" || o.status === "IN_PROGRESS",
+      ).length;
+
+      return {
+        ...customer,
+        stats: {
+          orderCount: customer._count.orders,
+          revenue,
+          openInvoices,
+          activeOrders,
+        },
+      };
     } catch (error) {
       if (isPrismaNotFoundError(error)) {
         throw new NotFoundError(`Customer with id ${id} not found`);

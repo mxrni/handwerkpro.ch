@@ -1,6 +1,7 @@
 import type {
   CreateCustomerInput,
   Customer,
+  CustomerDetailOutput,
   ListCustomersInput,
   ListCustomersOutput,
   UpdateCustomerInput,
@@ -62,8 +63,8 @@ export const customersApi = {
       `/api/customers${buildSearchParams(params)}`,
     ),
 
-  getById: (id: string): Promise<Customer> =>
-    apiClient<Customer>(`/api/customers/${id}`),
+  getById: (id: string): Promise<CustomerDetailOutput> =>
+    apiClient<CustomerDetailOutput>(`/api/customers/${id}`),
 
   create: (data: CreateCustomerInput): Promise<Customer> =>
     apiClient<Customer>("/api/customers", {

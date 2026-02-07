@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { customerStatusMap } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import type { CustomerListItemOutput } from "@app/shared";
+import { Link } from "@tanstack/react-router";
 import { Building2, Mail, MapPin, Phone, User } from "lucide-react";
 import { CustomerActionsMenu } from "./customer-actions-menu";
 
@@ -18,86 +19,102 @@ export function CustomerCard({ customer, onEdit }: CustomerCardProps) {
   const isBusinessCustomer = customer.type === "BUSINESS";
 
   return (
-    <Card className="bg-card border-border hover:border-primary/50 transition-colors">
-      {/* TODO: Add Link to="/kunden/$id" when customer detail route is created */}
-      <CardContent>
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Avatar className="w-11 h-11">
-              <AvatarFallback className="bg-secondary text-secondary-foreground">
-                {isBusinessCustomer ? (
-                  <Building2 className="w-5 h-5" />
-                ) : (
-                  <User className="w-5 h-5" />
-                )}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h3 className="font-medium text-card-foreground">
-                {customer.name}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {customer.contactName}
-              </p>
+    <Link
+      to="/kunden/$id"
+      params={{ id: customer.id }}
+      className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Card className="bg-card border-border hover:border-primary/50 transition-colors">
+        <CardContent>
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Avatar className="w-11 h-11">
+                <AvatarFallback className="bg-secondary text-secondary-foreground">
+                  {isBusinessCustomer ? (
+                    <Building2 className="w-5 h-5" />
+                  ) : (
+                    <User className="w-5 h-5" />
+                  )}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="font-medium text-card-foreground">
+                  {customer.name}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {customer.contactName}
+                </p>
+              </div>
+            </div>
+            <div onClick={(e) => e.stopPropagation()}>
+              <CustomerActionsMenu customer={customer} onEdit={onEdit} />
             </div>
           </div>
-          <CustomerActionsMenu customer={customer} onEdit={onEdit} />
-        </div>
 
-        <div className="space-y-2 text-sm">
-          <a
-            href={`mailto:${customer.email}`}
-            className="flex items-center gap-2 text-muted-foreground hover:underline"
+          <div
+            className="space-y-2 text-sm"
+            onClick={(e) => e.stopPropagation()}
           >
-            <Mail className="w-3.5 h-3.5" />
-            <span className="truncate">{customer.email}</span>
-          </a>
-          <a
-            href={`tel:${customer.phone}`}
-            className="flex items-center gap-2 text-muted-foreground hover:underline"
-          >
-            <Phone className="w-3.5 h-3.5" />
-            <span>{customer.phone}</span>
-          </a>
-          <a
-            href={`https://maps.google.com/?q=${encodeURIComponent(address || "")}`}
-            className="flex items-center gap-2 text-muted-foreground hover:underline"
-            target="_blank"
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            <span>{address || "—"}</span>
-          </a>
-        </div>
+            <div className="flex items-center gap-2">
+              <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+              <a
+                href={`mailto:${customer.email}`}
+                className="text-primary hover:underline truncate"
+              >
+                {customer.email}
+              </a>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+              <a
+                href={`tel:${customer.phone}`}
+                className="text-primary hover:underline"
+              >
+                {customer.phone}
+              </a>
+            </div>
+            <div className="flex items-center gap-2">
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(address || "")}`}
+                className="text-primary hover:underline"
+                target="_blank"
+              >
+                {address || "—"}
+              </a>
+            </div>
+          </div>
 
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-          <div className="text-center">
-            <p className="text-lg font-semibold text-card-foreground">
-              {customer.stats.orderCount}
-            </p>
-            <p className="text-xs text-muted-foreground">Aufträge</p>
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+            <div className="text-center">
+              <p className="text-lg font-semibold text-card-foreground">
+                {customer.stats.orderCount}
+              </p>
+              <p className="text-xs text-muted-foreground">Aufträge</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-semibold text-card-foreground">
+                {formatCurrency(customer.stats.revenue)}
+              </p>
+              <p className="text-xs text-muted-foreground">Umsatz</p>
+            </div>
+            <Badge
+              variant="outline"
+              className={
+                customerStatusMap[
+                  customer.status as "ACTIVE" | "INACTIVE" | "ARCHIVED"
+                ].className
+              }
+            >
+              {
+                customerStatusMap[
+                  customer.status as "ACTIVE" | "INACTIVE" | "ARCHIVED"
+                ].label
+              }
+            </Badge>
           </div>
-          <div className="text-center">
-            <p className="text-lg font-semibold text-card-foreground">
-              {formatCurrency(customer.stats.revenue)}
-            </p>
-            <p className="text-xs text-muted-foreground">Umsatz</p>
-          </div>
-          <Badge
-            variant="outline"
-            className={
-              customerStatusMap[
-                customer.status as "ACTIVE" | "INACTIVE" | "ARCHIVED"
-              ].className
-            }
-          >
-            {
-              customerStatusMap[
-                customer.status as "ACTIVE" | "INACTIVE" | "ARCHIVED"
-              ].label
-            }
-          </Badge>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

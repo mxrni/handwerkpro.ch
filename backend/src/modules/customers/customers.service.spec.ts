@@ -51,7 +51,139 @@ function mockPrismaCustomer(overrides: Record<string, unknown> = {}) {
     createdAt: new Date("2025-01-01"),
     updatedAt: new Date("2025-01-01"),
     _count: { orders: 3 },
-    invoices: [{ total: 1500 }, { total: 2500 }],
+    invoices: [
+      { status: "PAID", total: 1500 },
+      { status: "PAID", total: 2500 },
+      { status: "SENT", total: 800 },
+      { status: "OVERDUE", total: 200 },
+    ],
+    orders: [{ id: "order_1" }, { id: "order_2" }],
+    ...overrides,
+  };
+}
+
+// Factory for a mock customer from Prisma with full relation data (for listOne)
+function mockPrismaCustomerDetail(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "cuid_1",
+    name: "Muster AG",
+    type: "BUSINESS",
+    contactName: "Hans Muster",
+    email: "hans@muster.ch",
+    phone: "+41 44 123 45 67",
+    mobile: null,
+    street: "Bahnhofstrasse 1",
+    postalCode: "8001",
+    city: "Zürich",
+    country: "CH",
+    notes: null,
+    status: "ACTIVE",
+    createdAt: new Date("2025-01-01"),
+    updatedAt: new Date("2025-01-01"),
+    _count: { orders: 3 },
+    invoices: [
+      {
+        id: "inv_1",
+        invoiceNumber: "RE-001",
+        title: "Rechnung Januar",
+        status: "PAID",
+        issueDate: new Date("2025-01-15"),
+        dueDate: new Date("2025-02-15"),
+        paidDate: new Date("2025-01-20"),
+        total: 1500,
+        paidAmount: 1500,
+        createdAt: new Date("2025-01-15"),
+      },
+      {
+        id: "inv_2",
+        invoiceNumber: "RE-002",
+        title: "Rechnung Februar",
+        status: "PAID",
+        issueDate: new Date("2025-02-15"),
+        dueDate: new Date("2025-03-15"),
+        paidDate: new Date("2025-02-20"),
+        total: 2500,
+        paidAmount: 2500,
+        createdAt: new Date("2025-02-15"),
+      },
+      {
+        id: "inv_3",
+        invoiceNumber: "RE-003",
+        title: "Rechnung März",
+        status: "SENT",
+        issueDate: new Date("2025-03-01"),
+        dueDate: new Date("2025-04-01"),
+        paidDate: null,
+        total: 800,
+        paidAmount: null,
+        createdAt: new Date("2025-03-01"),
+      },
+      {
+        id: "inv_4",
+        invoiceNumber: "RE-004",
+        title: "Rechnung April",
+        status: "OVERDUE",
+        issueDate: new Date("2025-04-01"),
+        dueDate: new Date("2025-05-01"),
+        paidDate: null,
+        total: 200,
+        paidAmount: null,
+        createdAt: new Date("2025-04-01"),
+      },
+    ],
+    orders: [
+      {
+        id: "order_1",
+        orderNumber: "AU-001",
+        title: "Badezimmer Renovation",
+        status: "PLANNED",
+        priority: "NORMAL",
+        startDate: new Date("2025-02-01"),
+        endDate: null,
+        deadline: new Date("2025-04-01"),
+        estimatedCost: 15000,
+        actualCost: null,
+        createdAt: new Date("2025-01-10"),
+      },
+      {
+        id: "order_2",
+        orderNumber: "AU-002",
+        title: "Küche Einbau",
+        status: "IN_PROGRESS",
+        priority: "HIGH",
+        startDate: new Date("2025-03-01"),
+        endDate: null,
+        deadline: new Date("2025-05-01"),
+        estimatedCost: 25000,
+        actualCost: 12000,
+        createdAt: new Date("2025-02-15"),
+      },
+      {
+        id: "order_3",
+        orderNumber: "AU-003",
+        title: "Dach Reparatur",
+        status: "COMPLETED",
+        priority: "LOW",
+        startDate: new Date("2025-01-01"),
+        endDate: new Date("2025-01-15"),
+        deadline: new Date("2025-02-01"),
+        estimatedCost: 5000,
+        actualCost: 4800,
+        createdAt: new Date("2024-12-20"),
+      },
+    ],
+    quotes: [
+      {
+        id: "quote_1",
+        quoteNumber: "OF-001",
+        title: "Offerte Badezimmer",
+        status: "ACCEPTED",
+        issueDate: new Date("2025-01-05"),
+        validUntil: new Date("2025-02-05"),
+        total: 15000,
+        createdAt: new Date("2025-01-05"),
+      },
+    ],
     ...overrides,
   };
 }
@@ -72,17 +204,21 @@ describe("CustomerService", () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0].stats.orderCount).toBe(3);
       expect(result.data[0].stats.revenue).toBe(4000); // 1500 + 2500
+      expect(result.data[0].stats.openInvoices).toBe(1000); // 800 + 200
+      expect(result.data[0].stats.activeOrders).toBe(2);
       expect(result.total).toBe(1);
     });
 
     it("calculates revenue as 0 when no paid invoices exist", async () => {
-      const mockCustomer = mockPrismaCustomer({ invoices: [] });
+      const mockCustomer = mockPrismaCustomer({ invoices: [], orders: [] });
       mockedPrisma.customer.findMany.mockResolvedValue([mockCustomer] as never);
       mockedPrisma.customer.count.mockResolvedValue(1 as never);
 
       const result = await service.listAll({ page: 1, pageSize: 20 });
 
       expect(result.data[0].stats.revenue).toBe(0);
+      expect(result.data[0].stats.openInvoices).toBe(0);
+      expect(result.data[0].stats.activeOrders).toBe(0);
     });
 
     it("computes correct skip for pagination", async () => {
@@ -176,14 +312,26 @@ describe("CustomerService", () => {
   });
 
   describe("listOne", () => {
-    it("returns customer when found", async () => {
-      const mockCustomer = mockPrismaCustomer();
+    it("returns customer with stats and full relation data when found", async () => {
+      const mockCustomer = mockPrismaCustomerDetail();
       mockedPrisma.customer.findUniqueOrThrow.mockResolvedValue(
         mockCustomer as never,
       );
 
       const result = await service.listOne("cuid_1");
       expect(result.id).toBe("cuid_1");
+      expect(result.stats.orderCount).toBe(3);
+      expect(result.stats.revenue).toBe(4000); // 1500 + 2500
+      expect(result.stats.openInvoices).toBe(1000); // 800 + 200
+      expect(result.stats.activeOrders).toBe(2); // PLANNED + IN_PROGRESS
+
+      // Verify full relation data is returned
+      expect(result.orders).toHaveLength(3);
+      expect(result.orders[0].orderNumber).toBe("AU-001");
+      expect(result.quotes).toHaveLength(1);
+      expect(result.quotes[0].quoteNumber).toBe("OF-001");
+      expect(result.invoices).toHaveLength(4);
+      expect(result.invoices[0].invoiceNumber).toBe("RE-001");
     });
 
     it("throws NotFoundError when customer does not exist", async () => {

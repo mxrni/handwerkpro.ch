@@ -9,11 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as KundenRouteImport } from './routes/kunden'
+import { Route as KundenRouteRouteImport } from './routes/kunden/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as KundenIdRouteImport } from './routes/kunden.$id'
+import { Route as KundenIndexRouteImport } from './routes/kunden/index'
+import { Route as KundenIdRouteImport } from './routes/kunden/$id'
 
-const KundenRoute = KundenRouteImport.update({
+const KundenRouteRoute = KundenRouteRouteImport.update({
   id: '/kunden',
   path: '/kunden',
   getParentRoute: () => rootRouteImport,
@@ -23,39 +24,46 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KundenIndexRoute = KundenIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => KundenRouteRoute,
+} as any)
 const KundenIdRoute = KundenIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => KundenRoute,
+  getParentRoute: () => KundenRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/kunden': typeof KundenRouteWithChildren
+  '/kunden': typeof KundenRouteRouteWithChildren
   '/kunden/$id': typeof KundenIdRoute
+  '/kunden/': typeof KundenIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/kunden': typeof KundenRouteWithChildren
   '/kunden/$id': typeof KundenIdRoute
+  '/kunden': typeof KundenIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/kunden': typeof KundenRouteWithChildren
+  '/kunden': typeof KundenRouteRouteWithChildren
   '/kunden/$id': typeof KundenIdRoute
+  '/kunden/': typeof KundenIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/kunden' | '/kunden/$id'
+  fullPaths: '/' | '/kunden' | '/kunden/$id' | '/kunden/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/kunden' | '/kunden/$id'
-  id: '__root__' | '/' | '/kunden' | '/kunden/$id'
+  to: '/' | '/kunden/$id' | '/kunden'
+  id: '__root__' | '/' | '/kunden' | '/kunden/$id' | '/kunden/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  KundenRoute: typeof KundenRouteWithChildren
+  KundenRouteRoute: typeof KundenRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -64,7 +72,7 @@ declare module '@tanstack/react-router' {
       id: '/kunden'
       path: '/kunden'
       fullPath: '/kunden'
-      preLoaderRoute: typeof KundenRouteImport
+      preLoaderRoute: typeof KundenRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -74,30 +82,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/kunden/': {
+      id: '/kunden/'
+      path: '/'
+      fullPath: '/kunden/'
+      preLoaderRoute: typeof KundenIndexRouteImport
+      parentRoute: typeof KundenRouteRoute
+    }
     '/kunden/$id': {
       id: '/kunden/$id'
       path: '/$id'
       fullPath: '/kunden/$id'
       preLoaderRoute: typeof KundenIdRouteImport
-      parentRoute: typeof KundenRoute
+      parentRoute: typeof KundenRouteRoute
     }
   }
 }
 
-interface KundenRouteChildren {
+interface KundenRouteRouteChildren {
   KundenIdRoute: typeof KundenIdRoute
+  KundenIndexRoute: typeof KundenIndexRoute
 }
 
-const KundenRouteChildren: KundenRouteChildren = {
+const KundenRouteRouteChildren: KundenRouteRouteChildren = {
   KundenIdRoute: KundenIdRoute,
+  KundenIndexRoute: KundenIndexRoute,
 }
 
-const KundenRouteWithChildren =
-  KundenRoute._addFileChildren(KundenRouteChildren)
+const KundenRouteRouteWithChildren = KundenRouteRoute._addFileChildren(
+  KundenRouteRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  KundenRoute: KundenRouteWithChildren,
+  KundenRouteRoute: KundenRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,7 +1,7 @@
 # HandwerkPro - AI Development Guide
 
 **Version:** 1.1  
-**Last Updated:** 4. Februar 2026
+**Last Updated:** 6. Februar 2026
 
 ## 🎯 Projekt-Übersicht
 
@@ -23,27 +23,6 @@ HandwerkPro ist eine moderne SaaS-Plattform für Schweizer Handwerksbetriebe, di
 - CHF-Währung
 - Schweizer Datumsformate (DD.MM.YYYY)
 - Länderfokus: CH, DE, AT, LI
-
----
-
-## � OPEN TODOs
-
-### Customer Detail Route
-
-**Status:** 📋 Geplant
-
-**Beschreibung:** `/kunden/$id` Route für Kunden-Detailansicht fehlt noch
-
-**Benötigte Dateien:**
-- `frontend/src/routes/kunden.$id.tsx`: Detail-Ansicht mit TanStack Router
-- Customer-Detail-Komponenten (Header, Stats, History, Documents)
-
-**Implementierungs-Schritte:**
-- [ ] Customer Detail Route erstellen (`kunden.$id.tsx`)
-- [ ] `useCustomer(id)` Hook für Single-Customer-Abfrage implementieren
-- [ ] Customer-Detail-Komponenten implementieren
-- [ ] Navigation von Customer-Card zur Detail-Seite
-- [ ] Breadcrumb-Navigation hinzufügen
 
 ---
 
@@ -149,6 +128,71 @@ export const Route = createRootRoute({
 - ✅ Einzelne Komponenten sollen fehlschlagen können ohne die ganze Seite zu blockieren
 - ✅ Fehler in Development Mode zeigen Stack Traces
 
+### DataTable Pattern (Wiederverwendbare Datentabellen)
+
+Das Projekt verwendet eine generische `DataTable<TData, TValue>` Komponente basierend auf `@tanstack/react-table` und shadcn/ui Table-Primitives.
+
+**Architektur:**
+```
+DataTable<TData>       ← Generic component (sorting, pagination, empty state)
+  ├── ColumnDef[]      ← Column definitions per entity (separate files)
+  ├── Status Maps      ← German labels + Tailwind badge classes (constants.ts)
+  └── Table primitives ← shadcn/ui Table, TableHeader, TableBody, etc.
+```
+
+**Neue DataTable erstellen:**
+
+```typescript
+// 1. Shared Schema definieren (z.B. shared/src/orders.ts)
+export const CustomerOrderOutput = z.object({
+  id: z.string(),
+  orderNumber: z.string(),
+  title: z.string(),
+  status: z.enum(OrderStatus),
+  // ...
+});
+
+// 2. Status Map in constants.ts definieren
+export const orderStatusMap: Record<OrderStatus, { label: string; className: string }> = {
+  PLANNED: { label: "Geplant", className: "border-blue-500 text-blue-700 bg-blue-50" },
+  // ...
+};
+
+// 3. Column definitions erstellen (customer-orders-columns.tsx)
+export const orderColumns: ColumnDef<CustomerOrderOutput>[] = [
+  {
+    accessorKey: "orderNumber",
+    header: "Nr.",
+    enableSorting: false,
+    cell: ({ row }) => <span className="font-medium">{row.getValue("orderNumber")}</span>,
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const status = row.getValue("status") as CustomerOrderOutput["status"];
+      const mapped = orderStatusMap[status];
+      return <Badge variant="outline" className={mapped.className}>{mapped.label}</Badge>;
+    },
+  },
+  // ...
+];
+
+// 4. DataTable verwenden
+<DataTable columns={orderColumns} data={customer.orders} emptyMessage="Keine Aufträge" />
+```
+
+**DataTable Props:**
+- `columns` — `ColumnDef[]` Array
+- `data` — Daten-Array
+- `pageSize` — Standard: 5 (für eingebettete Tabellen)
+- `emptyMessage` — Deutscher Leertext
+
+**Vorhandene Column-Definitions:**
+- `customer-orders-columns.tsx` — Aufträge (Nr, Bezeichnung, Status, Priorität, Start, Frist, Kosten)
+- `customer-quotes-columns.tsx` — Offerten (Nr, Bezeichnung, Status, Datum, Gültig bis, Betrag)
+- `customer-invoices-columns.tsx` — Rechnungen (Nr, Bezeichnung, Status, Datum, Fällig, Betrag, Bezahlt)
+
 ---
 
 ## 🏗️ Architektur & Tech Stack
@@ -236,6 +280,7 @@ export const Route = createRootRoute({
   "@tanstack/react-router": "^1.151.0",
   "@tanstack/react-query": "^5.90.0",
   "@tanstack/react-form": "^0.45.5",
+  "@tanstack/react-table": "^8.21.3",
   "tailwindcss": "^4.1.0",
   "@radix-ui/*": "latest",
   "lucide-react": "^0.468.0",
@@ -291,19 +336,32 @@ frontend/
 │   ├── routes/                 # FILE-BASED ROUTING (TanStack Router)
 │   │   ├── __root.tsx          # Root layout (AppSidebar + Providers)
 │   │   ├── index.tsx           # Home/Dashboard page
-│   │   └── kunden.tsx          # Customer list page
+│   │   └── kunden/             # Customer routes (directory-based)
+│   │       ├── route.tsx       # Customer layout route (Outlet)
+│   │       ├── index.tsx       # Customer list page (/kunden)
+│   │       └── $id.tsx         # Customer detail page (/kunden/$id)
 │   ├── components/
 │   │   ├── app-shell/          # Layout components (Sidebar, Header, Nav)
 │   │   ├── customers/          # Customer feature components
 │   │   │   ├── customer-card.tsx
 │   │   │   ├── customer-list.tsx
 │   │   │   ├── customer-dialog.tsx
-│   │   │   └── customer-toolbar.tsx
+│   │   │   ├── customer-toolbar.tsx
+│   │   │   ├── customer-actions-menu.tsx
+│   │   │   ├── customer-details-header.tsx
+│   │   │   ├── customer-details-stats.tsx
+│   │   │   ├── customer-details-data.tsx
+│   │   │   ├── customer-orders-columns.tsx    # DataTable column defs
+│   │   │   ├── customer-quotes-columns.tsx    # DataTable column defs
+│   │   │   └── customer-invoices-columns.tsx  # DataTable column defs
 │   │   ├── ui/                 # REUSABLE UI COMPONENTS (shadcn/ui)
 │   │   │   ├── button.tsx
 │   │   │   ├── card.tsx
+│   │   │   ├── data-table.tsx  # Generic DataTable<TData> (sorting + pagination)
 │   │   │   ├── dialog.tsx
 │   │   │   └── ... (~60 components)
+│   │   ├── error-boundary.tsx  # ErrorBoundary + QueryError
+│   │   ├── error-page.tsx      # Full-page error display
 │   │   ├── provider.tsx        # Global providers wrapper
 │   │   └── main-content.tsx    # Page wrapper component
 │   ├── hooks/                  # CUSTOM HOOKS (Business Logic)
@@ -312,8 +370,10 @@ frontend/
 │   ├── api/                    # API CLIENT LAYER
 │   │   └── customers.ts        # ⚠️ TO BE IMPLEMENTED
 │   └── lib/
+│       ├── api.ts              # Generic API client + customersApi
 │       ├── utils.ts            # Utilities (cn, formatDate, formatCurrency)
-│       └── constants.ts        # ⚠️ TO BE IMPLEMENTED (status maps, etc.)
+│       ├── constants.ts        # Status maps (customer, order, quote, invoice, priority)
+│       └── zod-errors.ts       # German Zod error translations
 └── vite.config.ts
 ```
 
@@ -331,8 +391,11 @@ Route (Page) → Container Component → Presentational Component
 shared/
 ├── src/
 │   ├── index.ts         # Re-exports all types & schemas
-│   ├── customers.ts     # Customer Zod schemas + types
-│   └── enums.ts         # All enum definitions
+│   ├── customers.ts     # Customer Zod schemas + types (incl. CustomerDetailOutput)
+│   ├── enums.ts         # All enum definitions (Customer, Order, Quote, Invoice, Priority)
+│   ├── orders.ts        # CustomerOrderOutput schema
+│   ├── quotes.ts        # CustomerQuoteOutput schema
+│   └── invoices.ts      # CustomerInvoiceOutput schema
 └── package.json
 ```
 
@@ -1038,22 +1101,53 @@ export function translateZodError(issue: $ZodIssue): string {
 
 #### 4. Routing & Navigation (TanStack Router)
 
-**File-Based Routing:**
+**File-Based Routing (Directory-Based):**
 
 ```
 routes/
   __root.tsx          → Layout (AppSidebar + Providers)
   index.tsx           → / (Dashboard)
-  kunden.tsx          → /kunden
-  kunden.$id.tsx      → /kunden/:id
-  auftraege.tsx       → /auftraege
-  auftraege.$id.tsx   → /auftraege/:id
+  kunden/             → Directory for /kunden routes
+    route.tsx         → /kunden (Layout mit Outlet)
+    index.tsx         → /kunden (Kundenliste)
+    $id.tsx           → /kunden/:id (Kunden-Detail)
+  auftraege/          → Directory for /auftraege routes
+    route.tsx         → /auftraege (Layout)
+    index.tsx         → /auftraege (Aufträge-Liste)
+    $id.tsx           → /auftraege/:id (Auftrags-Detail)
+```
+
+**⚠️ WICHTIG: Directory-Based Routing für verschachtelte Routes**
+
+Wenn eine Route sowohl eine Listenseite als auch Detail-Unterseiten hat, verwende ein Verzeichnis:
+
+```typescript
+// routes/kunden/route.tsx — Layout Route (rendert nur <Outlet />)
+import { createFileRoute, Outlet } from '@tanstack/react-router';
+
+export const Route = createFileRoute('/kunden')({
+  component: KundenLayout,
+});
+
+function KundenLayout() {
+  return <Outlet />;
+}
+
+// routes/kunden/index.tsx — Index Route (Kundenliste)
+export const Route = createFileRoute('/kunden/')({
+  component: KundenIndexPage,
+});
+
+// routes/kunden/$id.tsx — Detail Route (Kunden-Detail)
+export const Route = createFileRoute('/kunden/$id')({
+  component: CustomerDetailPage,
+});
 ```
 
 **Route Definition:**
 
 ```typescript
-// routes/kunden.$id.tsx
+// routes/kunden/$id.tsx
 import { createFileRoute } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/kunden/$id')({
@@ -1909,7 +2003,9 @@ touch frontend/src/components/orders/order-list.tsx
 touch frontend/src/components/orders/order-card.tsx
 
 # 5. Frontend Route
-touch frontend/src/routes/auftraege.tsx
+mkdir -p frontend/src/routes/auftraege
+touch frontend/src/routes/auftraege/route.tsx
+touch frontend/src/routes/auftraege/index.tsx
 ```
 
 **Template Files:** Siehe [Customer Module](backend/src/modules/customers/) als Referenz
@@ -2004,18 +2100,33 @@ npx shadcn@latest add tabs
 #### 5. Neue Frontend-Route erstellen
 
 ```bash
-# 1. Route-File erstellen
-touch frontend/src/routes/auftraege.tsx
+# 1. Verzeichnis und Route-Files erstellen
+mkdir -p frontend/src/routes/auftraege
+touch frontend/src/routes/auftraege/route.tsx
+touch frontend/src/routes/auftraege/index.tsx
 
-# 2. Route definieren
+# 2. Layout Route definieren (route.tsx)
 ```
 
 ```typescript
-// frontend/src/routes/auftraege.tsx
+// frontend/src/routes/auftraege/route.tsx
+import { createFileRoute, Outlet } from '@tanstack/react-router';
+
+export const Route = createFileRoute('/auftraege')({
+  component: AuftraegeLayout,
+});
+
+function AuftraegeLayout() {
+  return <Outlet />;
+}
+```
+
+```typescript
+// frontend/src/routes/auftraege/index.tsx
 import { createFileRoute } from '@tanstack/react-router';
 import { OrderList } from '@/components/orders/order-list';
 
-export const Route = createFileRoute('/auftraege')({
+export const Route = createFileRoute('/auftraege/')({
   component: AuftraegePage,
 });
 
@@ -2130,6 +2241,10 @@ Für tiefergehende Code-Beispiele siehe:
 - Customer Module: [`backend/src/modules/customers/`](backend/src/modules/customers/)
 - Customer Components: [`frontend/src/components/customers/`](frontend/src/components/customers/)
 - Shared Types: [`shared/src/customers.ts`](shared/src/customers.ts)
+- Shared Enums: [`shared/src/enums.ts`](shared/src/enums.ts) (CustomerStatus, OrderStatus, QuoteStatus, InvoiceStatus, Priority)
+- Order/Quote/Invoice Schemas: [`shared/src/orders.ts`](shared/src/orders.ts), [`shared/src/quotes.ts`](shared/src/quotes.ts), [`shared/src/invoices.ts`](shared/src/invoices.ts)
+- Generic DataTable: [`frontend/src/components/ui/data-table.tsx`](frontend/src/components/ui/data-table.tsx)
+- Status Maps: [`frontend/src/lib/constants.ts`](frontend/src/lib/constants.ts)
 
 ---
 
@@ -2145,7 +2260,9 @@ Für tiefergehende Code-Beispiele siehe:
 - ✅ Pagination & Filtering
 - ✅ Status-Management (Active, Inactive, Archived)
 - ✅ Typ-Unterscheidung (Privat, Geschäftlich)
-- 🚧 Kunden-Detail-Seite mit Historie
+- ✅ Kunden-Detail-Seite mit Stats & Kontaktdaten
+- ✅ Navigation von Card zur Detail-Seite (Link)
+- ✅ DataTables für Aufträge, Offerten, Rechnungen auf Detail-Seite
 - 📋 Dokument-Upload pro Kunde
 
 ### 2. 🚧 Auftragsmanagement

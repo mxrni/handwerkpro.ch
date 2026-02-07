@@ -1,5 +1,6 @@
 import {
   CreateCustomerInput,
+  CustomerDetailOutput,
   CustomerIDInput,
   CustomerOutput,
   CustomerStatsOutput,
@@ -50,7 +51,7 @@ customersRouter.get(
 
 customersRouter.get(
   "/:id",
-  handleRequest(CustomerIDInput, CustomerOutput, async (input) => {
+  handleRequest(CustomerIDInput, CustomerDetailOutput, async (input) => {
     return service.listOne(input.id);
   }),
 );
